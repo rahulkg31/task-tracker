@@ -829,11 +829,23 @@ function openModal(mode, itemId=null, presetParentId=null, presetType=null){
       dueDate: document.getElementById('f_due').value,
     };
     if(editing){
+      const previousAssignee = item.assignee;
       Object.assign(item, data);
+
+      if (data.assignee && data.assignee !== previousAssignee) {
+        descendantsOf(item.id).forEach(descId => {
+          const child = itemById(descId);
+          if (child && !String(child.assignee || '').trim()) {
+            child.assignee = data.assignee;
+          }
+        });
+      }
+
       toast(`${item.id} updated.`);
     } else {
       const id = nextId(t);
-      state.items.push(Object.assign({id, createdAt: todayStr()}, data));
+      const newItem = Object.assign({id, createdAt: todayStr()}, data);
+      state.items.push(newItem);
       state.expanded.add(parentId);
       toast(`${id} created.`);
     }
