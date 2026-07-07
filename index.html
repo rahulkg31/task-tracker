@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ledger — Team Delivery Tracker</title>
+<title>TaskBoard — Team Delivery Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -200,9 +200,9 @@ table.data-table{width:100%;border-collapse:collapse;font-size:13px;}
 
   <div class="topbar">
     <div class="brand">
-      <div class="brand-mark">L</div>
+      <div class="brand-mark">T</div>
       <div class="brand-text">
-        <h1>Ledger</h1>
+        <h1>TaskBoard</h1>
         <p>TEAM DELIVERY TRACKER</p>
       </div>
     </div>
@@ -251,7 +251,7 @@ const PREFIX = {Epic:'EPIC',Feature:'FEAT',Task:'TASK',Subtask:'SUB',Issue:'ISS'
 const ALLOWED_PARENTS = {Epic:[],Feature:['Epic'],Task:['Epic','Feature'],Subtask:['Task'],Issue:['Epic','Feature','Task','Subtask']};
 const STATUSES = ['Backlog','In Progress','Blocked','In Review','Done'];
 const PRIORITIES = ['Low','Medium','High','Critical'];
-const STORE_KEY = 'ledger-tracker-data';
+const STORE_KEY = 'taskboard-tracker-data';
 
 let state = {
   items: [],
@@ -881,7 +881,7 @@ document.getElementById('btnTemplate').addEventListener('click', ()=>{
     {id:'ISS-1', type:'Issue', parentId:'TASK-1', title:'Sample Issue', description:'A bug or blocker', assignee:'', status:'Blocked', priority:'Critical', estHours:0, actHours:0, startDate:'', dueDate:'', tags:'', createdAt:todayStr()}
   ];
   const csv = Papa.unparse({fields: CSV_COLUMNS, data: sample});
-  downloadBlob(csv, 'ledger-template.csv', 'text/csv;charset=utf-8;');
+  downloadBlob(csv, 'taskboard-template.csv', 'text/csv;charset=utf-8;');
   toast('Template downloaded.');
 });
 
@@ -892,7 +892,7 @@ document.getElementById('btnExport').addEventListener('click', ()=>{
     return row;
   });
   const csv = Papa.unparse({fields: CSV_COLUMNS, data: rows});
-  downloadBlob(csv, `ledger-export-${todayStr()}.csv`, 'text/csv;charset=utf-8;');
+  downloadBlob(csv, `taskboard-export-${todayStr()}.csv`, 'text/csv;charset=utf-8;');
   toast(`Exported ${state.items.length} items.`);
 });
 
