@@ -101,8 +101,8 @@ input[type=file]{display:none;}
 
 /* ---------- Tree view ---------- */
 .tree-wrap{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
-.tree-header{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 56px 90px;gap:10px;padding:9px 14px;background:var(--paper);border-bottom:1px solid var(--line);font-size:11px;font-weight:600;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.03em;}
-.tree-row{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 56px 90px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px;transition:background .1s;}
+.tree-header{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 110px 90px;gap:10px;padding:9px 14px;background:var(--paper);border-bottom:1px solid var(--line);font-size:11px;font-weight:600;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.03em;}
+.tree-row{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 110px 90px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px;transition:background .1s;}
 .tree-row:last-child{border-bottom:none;}
 .tree-row:hover{background:var(--paper);}
 .tree-row:hover .row-actions{opacity:1;}
@@ -124,15 +124,9 @@ input[type=file]{display:none;}
 .avatar{width:20px;height:20px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);font-family:var(--mono);font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .date-cell{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);}
 .parent-cell{position:relative;display:flex;align-items:center;min-width:0;}
-.parent-display{width:24px;height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;border-radius:4px;font-size:12px;line-height:1;color:var(--ink-faint);transition:background .12s, color .12s, border-color .12s;}
-.parent-display:hover{background:var(--line);border-color:var(--line-strong);color:var(--ink);}
-.parent-display:active{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent);}
-.parent-select{width:100%;min-width:150px;font-size:11.5px;padding:4px 6px;border:1px solid var(--line-strong);border-radius:4px;background:var(--surface);color:var(--ink);cursor:pointer;transition:border-color .12s, box-shadow .12s;}
-.parent-select:hover{border-color:var(--ink-dim);}
-.parent-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
-.parent-select option{background:var(--surface);color:var(--ink);padding:8px 10px;font-family:var(--body);font-size:13px;}
-.parent-select option:checked{background:var(--accent-soft);color:var(--accent-ink);font-weight:600;}
-.parent-select option:hover{background:var(--accent-soft);color:var(--accent-ink);}
+.parent-display{width:100%;text-align:left;background:none;border:none;padding:3px 4px;border-radius:4px;font-size:12px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.parent-display:hover{background:var(--line);color:var(--ink);}
+.parent-select{width:100%;font-size:11.5px;padding:4px 6px;border:1px solid var(--line-strong);border-radius:4px;background:var(--surface);color:var(--ink);max-width:100%;}
 .parent-select:focus{outline:2px solid var(--accent);outline-offset:1px;}
 .parent-none{font-size:11px;color:var(--ink-faint);font-family:var(--mono);}
 
@@ -397,7 +391,7 @@ function validParentsFor(item){
 function parentSelectHtml(item){
   const opts = validParentsFor(item);
   if(opts.length === 0){
-    return item.type==='Epic' ? '' : `<span class="parent-none">—</span>`;
+    return `<span class="parent-none">${item.type==='Epic' ? 'top level only' : '—'}</span>`;
   }
   const current = item.parentId ? itemById(item.parentId) : null;
   const displayLabel = current ? current.title : '— top level —';
@@ -405,7 +399,7 @@ function parentSelectHtml(item){
   const optionsHtml = ['<option value="">— none (top level) —</option>']
     .concat(sorted.map(o=>`<option value="${o.id}" ${o.id===item.parentId?'selected':''}>${o.id} · ${escapeHtml(o.title)}</option>`));
   return `<div class="parent-cell" data-parentcell="${item.id}">
-    <button type="button" class="parent-display" data-parentdisplay="${item.id}" title="${escapeHtml(displayLabel)} — click to change parent" aria-label="Change parent">▾</button>
+    <button type="button" class="parent-display" data-parentdisplay="${item.id}" title="${escapeHtml(displayLabel)} — click to change">${escapeHtml(displayLabel)}</button>
     <select class="parent-select" data-parentchange="${item.id}" title="Change parent" style="display:none;">${optionsHtml.join('')}</select>
   </div>`;
 }
@@ -678,7 +672,7 @@ function renderTable(){
       <td style="font-family:var(--mono);">${item.estHours||0}</td>
       <td style="font-family:var(--mono);">${item.actHours||0}</td>
       <td class="${isOverdue(item)?'overdue':''}" style="font-family:var(--mono);font-size:12px;">${item.dueDate||'—'}</td>
-      <td style="width:56px;white-space:normal;">${parentSelectHtml(item)}</td>
+      <td style="min-width:110px;max-width:150px;white-space:normal;">${parentSelectHtml(item)}</td>
       <td class="path-cell" title="${escapeHtml(pathOf(item))}">${escapeHtml(pathOf(item))}</td>
       <td>
         <div class="actions-cell">
@@ -849,7 +843,7 @@ function openModal(mode, itemId=null, presetParentId=null, presetType=null){
           <input type="number" min="0" step="0.5" id="f_act" value="${editing?item.actHours:0}">
         </div>
         <div class="field"><label>Start date</label>
-          <input type="date" id="f_start" value="${editing?item.startDate:''}">
+          <input type="date" id="f_start" value="${editing?item.startDate:todayStr()}">
         </div>
         <div class="field"><label>Due date</label>
           <input type="date" id="f_due" value="${editing?item.dueDate:''}">
