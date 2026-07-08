@@ -101,8 +101,8 @@ input[type=file]{display:none;}
 
 /* ---------- Tree view ---------- */
 .tree-wrap{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
-.tree-header{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 116px 90px;gap:10px;padding:9px 14px;background:var(--paper);border-bottom:1px solid var(--line);font-size:11px;font-weight:600;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.03em;}
-.tree-row{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 116px 90px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px;transition:background .1s;}
+.tree-header{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 56px 90px;gap:10px;padding:9px 14px;background:var(--paper);border-bottom:1px solid var(--line);font-size:11px;font-weight:600;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.03em;}
+.tree-row{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 56px 90px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px;transition:background .1s;}
 .tree-row:last-child{border-bottom:none;}
 .tree-row:hover{background:var(--paper);}
 .tree-row:hover .row-actions{opacity:1;}
@@ -123,6 +123,18 @@ input[type=file]{display:none;}
 .assignee-cell{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-dim);}
 .avatar{width:20px;height:20px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);font-family:var(--mono);font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .date-cell{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);}
+.parent-cell{position:relative;display:flex;align-items:center;min-width:0;}
+.parent-display{width:24px;height:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;border-radius:4px;font-size:12px;line-height:1;color:var(--ink-faint);transition:background .12s, color .12s, border-color .12s;}
+.parent-display:hover{background:var(--line);border-color:var(--line-strong);color:var(--ink);}
+.parent-display:active{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent);}
+.parent-select{width:100%;min-width:150px;font-size:11.5px;padding:4px 6px;border:1px solid var(--line-strong);border-radius:4px;background:var(--surface);color:var(--ink);cursor:pointer;transition:border-color .12s, box-shadow .12s;}
+.parent-select:hover{border-color:var(--ink-dim);}
+.parent-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+.parent-select option{background:var(--surface);color:var(--ink);padding:8px 10px;font-family:var(--body);font-size:13px;}
+.parent-select option:checked{background:var(--accent-soft);color:var(--accent-ink);font-weight:600;}
+.parent-select option:hover{background:var(--accent-soft);color:var(--accent-ink);}
+.parent-select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+.parent-none{font-size:11px;color:var(--ink-faint);font-family:var(--mono);}
 
 /* ---------- Table view ---------- */
 .table-wrap{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow-x:auto;}
@@ -370,6 +382,72 @@ function initials(name){
 }
 function statusClass(s){ return 'st-' + s.replace(/\s+/g,''); }
 
+/* Valid parent candidates for an item: correct type per ALLOWED_PARENTS,
+   excluding itself and any of its own descendants (prevents cycles). */
+function validParentsFor(item){
+  const allowed = ALLOWED_PARENTS[item.type] || [];
+  if(allowed.length === 0) return [];
+  const desc = new Set(descendantsOf(item.id));
+  return state.items.filter(i => allowed.includes(i.type) && i.id !== item.id && !desc.has(i.id));
+}
+
+/* Inline, click-to-reveal control for reassigning an item's parent directly from
+   list views. Collapsed by default (just shows the current parent's title) to
+   save horizontal space; clicking swaps it for a dropdown of valid parents. */
+function parentSelectHtml(item){
+  const opts = validParentsFor(item);
+  if(opts.length === 0){
+    return item.type==='Epic' ? '' : `<span class="parent-none">—</span>`;
+  }
+  const current = item.parentId ? itemById(item.parentId) : null;
+  const displayLabel = current ? current.title : '— top level —';
+  const sorted = opts.slice().sort((a,b)=> a.title.localeCompare(b.title));
+  const optionsHtml = ['<option value="">— none (top level) —</option>']
+    .concat(sorted.map(o=>`<option value="${o.id}" ${o.id===item.parentId?'selected':''}>${o.id} · ${escapeHtml(o.title)}</option>`));
+  return `<div class="parent-cell" data-parentcell="${item.id}">
+    <button type="button" class="parent-display" data-parentdisplay="${item.id}" title="${escapeHtml(displayLabel)} — click to change parent" aria-label="Change parent">▾</button>
+    <select class="parent-select" data-parentchange="${item.id}" title="Change parent" style="display:none;">${optionsHtml.join('')}</select>
+  </div>`;
+}
+
+function wireParentSelects(root){
+  // Click the collapsed label to reveal the dropdown in its place.
+  root.querySelectorAll('[data-parentdisplay]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const cell = btn.closest('.parent-cell');
+      const sel = cell.querySelector('select');
+      btn.style.display = 'none';
+      sel.style.display = 'block';
+      sel.focus();
+      if(typeof sel.showPicker === 'function'){
+        try{ sel.showPicker(); }catch(err){ /* not supported, focus is enough */ }
+      }
+    });
+  });
+  root.querySelectorAll('[data-parentchange]').forEach(sel=>{
+    sel.addEventListener('click', e=>e.stopPropagation());
+    // Clicking away without changing anything collapses it back to the label.
+    sel.addEventListener('blur', ()=>{
+      const cell = sel.closest('.parent-cell');
+      if(!cell) return;
+      const btn = cell.querySelector('.parent-display');
+      sel.style.display = 'none';
+      if(btn) btn.style.display = 'block';
+    });
+    sel.addEventListener('change', async ()=>{
+      const id = sel.getAttribute('data-parentchange');
+      const item = itemById(id);
+      const newParent = sel.value;
+      item.parentId = newParent;
+      if(newParent) state.expanded.add(newParent);
+      await persist();
+      render();
+      toast(newParent ? `${item.id} moved under ${newParent}.` : `${item.id} moved to top level.`);
+    });
+  });
+}
+
 /* =========================================================
    TOASTS
 ========================================================= */
@@ -469,6 +547,7 @@ function renderTree(){
         <div class="hide-sm">${statusSelectHtml(item)}</div>
         <div class="hours-cell hide-sm"><b>${item.actHours||0}</b>/${item.estHours||0}h</div>
         <div class="date-cell ${isOverdue(item)?'overdue':''}">${item.dueDate ? item.dueDate : '—'}</div>
+        <div class="hide-sm">${parentSelectHtml(item)}</div>
         <div class="row-actions">
           <button class="icon-btn" title="Add child" data-addchild="${item.id}">+</button>
           <button class="icon-btn" title="Duplicate" data-dup="${item.id}">⧉</button>
@@ -485,7 +564,7 @@ function renderTree(){
   root.innerHTML = `
     <div class="tree-wrap">
       <div class="tree-header">
-        <span>Item</span><span class="hide-sm">Priority</span><span class="hide-sm">Status</span><span class="hide-sm">Hours (act/est)</span><span>Due</span><span></span>
+        <span>Item</span><span class="hide-sm">Priority</span><span class="hide-sm">Status</span><span class="hide-sm">Hours (act/est)</span><span>Due</span><span class="hide-sm">Parent</span><span></span>
       </div>
       ${rows}
     </div>`;
@@ -551,6 +630,7 @@ function wireTreeEvents(){
       toast(`${item.id} marked ${item.status}`);
     });
   });
+  wireParentSelects(document);
 }
 
 function suggestChildType(parentType){
@@ -582,7 +662,8 @@ function renderTable(){
   const cols = [
     {key:'id', label:'ID'}, {key:'type', label:'Type'}, {key:'title', label:'Title'},
     {key:'assignee', label:'Assignee'}, {key:'status', label:'Status'}, {key:'priority', label:'Priority'},
-    {key:'estHours', label:'Est (h)'}, {key:'actHours', label:'Act (h)'}, {key:'dueDate', label:'Due'}, {key:'path', label:'Path'}
+    {key:'estHours', label:'Est (h)'}, {key:'actHours', label:'Act (h)'}, {key:'dueDate', label:'Due'},
+    {key:'parentId', label:'Parent'}, {key:'path', label:'Path'}
   ];
   const headerHtml = cols.map(c=>`<th data-sortkey="${c.key}" class="${key===c.key?'sorted':''}">${c.label}</th>`).join('') + '<th></th>';
 
@@ -597,6 +678,7 @@ function renderTable(){
       <td style="font-family:var(--mono);">${item.estHours||0}</td>
       <td style="font-family:var(--mono);">${item.actHours||0}</td>
       <td class="${isOverdue(item)?'overdue':''}" style="font-family:var(--mono);font-size:12px;">${item.dueDate||'—'}</td>
+      <td style="width:56px;white-space:normal;">${parentSelectHtml(item)}</td>
       <td class="path-cell" title="${escapeHtml(pathOf(item))}">${escapeHtml(pathOf(item))}</td>
       <td>
         <div class="actions-cell">
@@ -618,6 +700,7 @@ function renderTable(){
   root.querySelectorAll('[data-edit]').forEach(btn=>btn.addEventListener('click', ()=>openModal('edit', btn.getAttribute('data-edit'))));
   root.querySelectorAll('[data-dup]').forEach(btn=>btn.addEventListener('click', ()=>doDuplicate(btn.getAttribute('data-dup'))));
   root.querySelectorAll('[data-del]').forEach(btn=>btn.addEventListener('click', ()=>confirmDelete(btn.getAttribute('data-del'))));
+  wireParentSelects(root);
 }
 
 /* =========================================================
