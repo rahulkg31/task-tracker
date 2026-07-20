@@ -99,10 +99,14 @@ input[type=file]{display:none;}
 
 .overdue{color:var(--danger) !important;font-weight:600;}
 
+.tag-pill{display:inline-flex;align-items:center;font-size:11px;font-weight:500;padding:2px 7px;border-radius:20px;background:var(--paper);color:var(--ink-dim);border:1px solid var(--line-strong);white-space:nowrap;}
+.tags-cell{display:flex;flex-wrap:wrap;gap:4px;max-width:200px;}
+.tags-empty{font-size:11px;color:var(--ink-faint);font-family:var(--mono);}
+
 /* ---------- Tree view ---------- */
 .tree-wrap{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
-.tree-header{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 56px 90px;gap:10px;padding:9px 14px;background:var(--paper);border-bottom:1px solid var(--line);font-size:11px;font-weight:600;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.03em;}
-.tree-row{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 56px 90px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px;transition:background .1s;}
+.tree-header{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 130px 56px 90px;gap:10px;padding:9px 14px;background:var(--paper);border-bottom:1px solid var(--line);font-size:11px;font-weight:600;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.03em;}
+.tree-row{display:grid;grid-template-columns:1fr 100px 130px 90px 100px 130px 56px 90px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px;transition:background .1s;}
 .tree-row:last-child{border-bottom:none;}
 .tree-row:hover{background:var(--paper);}
 .tree-row:hover .row-actions{opacity:1;}
@@ -197,7 +201,7 @@ table.data-table{width:100%;border-collapse:collapse;font-size:13px;}
 
 @media (max-width:900px){
   .tree-header,.tree-row{grid-template-columns:1fr 80px 80px;}
-  .tree-header span:nth-child(4),.tree-header span:nth-child(5),.tree-header span:nth-child(6),
+  .tree-header span:nth-child(4),.tree-header span:nth-child(5),.tree-header span:nth-child(6),.tree-header span:nth-child(7),
   .tree-row .hide-sm{display:none;}
   .cards-row{grid-template-columns:1fr 1fr;}
   .charts-row{grid-template-columns:1fr;}
@@ -240,6 +244,7 @@ table.data-table{width:100%;border-collapse:collapse;font-size:13px;}
     <select id="filterStatus"><option value="">All statuses</option></select>
     <select id="filterPriority"><option value="">All priorities</option></select>
     <select id="filterAssignee"><option value="">All assignees</option></select>
+    <select id="filterTag"><option value="">All tags</option></select>
     <div class="spacer"></div>
     <span class="count-pill" id="countPill">0 items</span>
     <button class="btn btn-ghost btn-sm" id="btnClearFilters">Clear</button>
@@ -271,11 +276,15 @@ let state = {
   counters: {Epic:0,Feature:0,Task:0,Subtask:0,Issue:0},
   view: 'tree',
   expanded: new Set(),
-  filters: {search:'', type:'', status:'', priority:'', assignee:''},
+  filters: {search:'', type:'', status:'', priority:'', assignee:'', tag:''},
   sort: {key:'title', dir:1}
 };
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+function tagsOf(item){
+  return (item.tags||'').split(',').map(t=>t.trim()).filter(Boolean);
+}
 
 function seedData(){
   const mk = (type, title, parentId, extra={}) => {
@@ -290,17 +299,17 @@ function seedData(){
     state.items.push(item);
     return id;
   };
-  const epic = mk('Epic','Website Relaunch','', {description:'Rebuild the marketing site and checkout.', assignee:'Priya Nair', status:'In Progress', priority:'High', estHours:400, actHours:180, startDate:'2026-06-01', dueDate:'2026-08-15'});
-  const feat1 = mk('Feature','Checkout Flow', epic, {assignee:'Marco Diaz', status:'In Progress', priority:'Critical', estHours:120, actHours:70, startDate:'2026-06-05', dueDate:'2026-07-20'});
-  const feat2 = mk('Feature','Design System', epic, {assignee:'Aisha Khan', status:'Backlog', priority:'Medium', estHours:80, actHours:10, startDate:'2026-06-20', dueDate:'2026-08-01'});
-  const t1 = mk('Task','Build payment form', feat1, {assignee:'Marco Diaz', status:'In Progress', priority:'High', estHours:24, actHours:18, startDate:'2026-06-10', dueDate:'2026-06-25'});
-  mk('Subtask','Add card validation', t1, {assignee:'Marco Diaz', status:'Done', priority:'Medium', estHours:6, actHours:7, startDate:'2026-06-10', dueDate:'2026-06-14'});
-  mk('Subtask','Wire up Stripe webhook', t1, {assignee:'Dev Patel', status:'In Progress', priority:'High', estHours:10, actHours:6, startDate:'2026-06-14', dueDate:'2026-06-22'});
-  const t2 = mk('Task','Cart persistence', feat1, {assignee:'Dev Patel', status:'Blocked', priority:'High', estHours:16, actHours:4, startDate:'2026-06-15', dueDate:'2026-07-01'});
-  mk('Issue','Cart clears on refresh in Safari', t2, {assignee:'Dev Patel', status:'Blocked', priority:'Critical', estHours:4, actHours:2, startDate:'2026-06-20', dueDate:'2026-06-24'});
-  mk('Task','Componentize buttons & inputs', feat2, {assignee:'Aisha Khan', status:'Backlog', priority:'Medium', estHours:20, actHours:0, startDate:'2026-07-01', dueDate:'2026-07-18'});
-  const epic2 = mk('Epic','Q3 Reporting Suite','', {description:'Internal analytics dashboards for leadership.', assignee:'Priya Nair', status:'Backlog', priority:'Medium', estHours:200, actHours:0, startDate:'2026-07-01', dueDate:'2026-09-30'});
-  mk('Feature','Export pipelines', epic2, {assignee:'Aisha Khan', status:'Backlog', priority:'Low', estHours:40, actHours:0, startDate:'2026-07-10', dueDate:'2026-08-10'});
+  const epic = mk('Epic','Website Relaunch','', {description:'Rebuild the marketing site and checkout.', assignee:'Priya Nair', status:'In Progress', priority:'High', estHours:400, actHours:180, startDate:'2026-06-01', dueDate:'2026-08-15', tags:'relaunch, q3'});
+  const feat1 = mk('Feature','Checkout Flow', epic, {assignee:'Marco Diaz', status:'In Progress', priority:'Critical', estHours:120, actHours:70, startDate:'2026-06-05', dueDate:'2026-07-20', tags:'checkout, payments'});
+  const feat2 = mk('Feature','Design System', epic, {assignee:'Aisha Khan', status:'Backlog', priority:'Medium', estHours:80, actHours:10, startDate:'2026-06-20', dueDate:'2026-08-01', tags:'design-system'});
+  const t1 = mk('Task','Build payment form', feat1, {assignee:'Marco Diaz', status:'In Progress', priority:'High', estHours:24, actHours:18, startDate:'2026-06-10', dueDate:'2026-06-25', tags:'payments, frontend'});
+  mk('Subtask','Add card validation', t1, {assignee:'Marco Diaz', status:'Done', priority:'Medium', estHours:6, actHours:7, startDate:'2026-06-10', dueDate:'2026-06-14', tags:'payments'});
+  mk('Subtask','Wire up Stripe webhook', t1, {assignee:'Dev Patel', status:'In Progress', priority:'High', estHours:10, actHours:6, startDate:'2026-06-14', dueDate:'2026-06-22', tags:'payments, backend'});
+  const t2 = mk('Task','Cart persistence', feat1, {assignee:'Dev Patel', status:'Blocked', priority:'High', estHours:16, actHours:4, startDate:'2026-06-15', dueDate:'2026-07-01', tags:'checkout, bug'});
+  mk('Issue','Cart clears on refresh in Safari', t2, {assignee:'Dev Patel', status:'Blocked', priority:'Critical', estHours:4, actHours:2, startDate:'2026-06-20', dueDate:'2026-06-24', tags:'bug, safari'});
+  mk('Task','Componentize buttons & inputs', feat2, {assignee:'Aisha Khan', status:'Backlog', priority:'Medium', estHours:20, actHours:0, startDate:'2026-07-01', dueDate:'2026-07-18', tags:'design-system, frontend'});
+  const epic2 = mk('Epic','Q3 Reporting Suite','', {description:'Internal analytics dashboards for leadership.', assignee:'Priya Nair', status:'Backlog', priority:'Medium', estHours:200, actHours:0, startDate:'2026-07-01', dueDate:'2026-09-30', tags:'q3, analytics'});
+  mk('Feature','Export pipelines', epic2, {assignee:'Aisha Khan', status:'Backlog', priority:'Low', estHours:40, actHours:0, startDate:'2026-07-10', dueDate:'2026-08-10', tags:'analytics, backend'});
   state.expanded = new Set([epic, feat1, t1, t2]);
 }
 
@@ -381,6 +390,12 @@ function initials(name){
   return name.trim().split(/\s+/).map(p=>p[0]).slice(0,2).join('').toUpperCase();
 }
 function statusClass(s){ return 'st-' + s.replace(/\s+/g,''); }
+
+function tagsCellHtml(item){
+  const tags = tagsOf(item);
+  if(tags.length === 0) return `<span class="tags-empty">—</span>`;
+  return `<div class="tags-cell">${tags.map(t=>`<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</div>`;
+}
 
 /* Valid parent candidates for an item: correct type per ALLOWED_PARENTS,
    excluding itself and any of its own descendants (prevents cycles). */
@@ -468,12 +483,13 @@ function matchesFilters(item){
   if(f.status && item.status !== f.status) return false;
   if(f.priority && item.priority !== f.priority) return false;
   if(f.assignee && item.assignee !== f.assignee) return false;
+  if(f.tag && !tagsOf(item).includes(f.tag)) return false;
   if(f.search && !item.title.toLowerCase().includes(f.search.toLowerCase())) return false;
   return true;
 }
 function anyFilterActive(){
   const f = state.filters;
-  return !!(f.search || f.type || f.status || f.priority || f.assignee);
+  return !!(f.search || f.type || f.status || f.priority || f.assignee || f.tag);
 }
 
 /* =========================================================
@@ -484,15 +500,19 @@ function populateFilterOptions(){
   const statusSel = document.getElementById('filterStatus');
   const prioSel = document.getElementById('filterPriority');
   const assigneeSel = document.getElementById('filterAssignee');
+  const tagSel = document.getElementById('filterTag');
   typeSel.innerHTML = '<option value="">All types</option>' + TYPES.map(t=>`<option value="${t}">${t}</option>`).join('');
   statusSel.innerHTML = '<option value="">All statuses</option>' + STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
   prioSel.innerHTML = '<option value="">All priorities</option>' + PRIORITIES.map(p=>`<option value="${p}">${p}</option>`).join('');
   const assignees = [...new Set(state.items.map(i=>i.assignee).filter(Boolean))].sort();
   assigneeSel.innerHTML = '<option value="">All assignees</option>' + assignees.map(a=>`<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+  const allTags = [...new Set(state.items.flatMap(i=>tagsOf(i)))].sort();
+  tagSel.innerHTML = '<option value="">All tags</option>' + allTags.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
   typeSel.value = state.filters.type;
   statusSel.value = state.filters.status;
   prioSel.value = state.filters.priority;
   assigneeSel.value = state.filters.assignee;
+  tagSel.value = state.filters.tag;
 }
 
 /* =========================================================
@@ -547,6 +567,7 @@ function renderTree(){
         <div class="hide-sm">${statusSelectHtml(item)}</div>
         <div class="hours-cell hide-sm"><b>${item.actHours||0}</b>/${item.estHours||0}h</div>
         <div class="date-cell ${isOverdue(item)?'overdue':''}">${item.dueDate ? item.dueDate : '—'}</div>
+        <div class="hide-sm">${tagsCellHtml(item)}</div>
         <div class="hide-sm">${parentSelectHtml(item)}</div>
         <div class="row-actions">
           <button class="icon-btn" title="Add child" data-addchild="${item.id}">+</button>
@@ -564,7 +585,7 @@ function renderTree(){
   root.innerHTML = `
     <div class="tree-wrap">
       <div class="tree-header">
-        <span>Item</span><span class="hide-sm">Priority</span><span class="hide-sm">Status</span><span class="hide-sm">Hours (act/est)</span><span>Due</span><span class="hide-sm">Parent</span><span></span>
+        <span>Item</span><span class="hide-sm">Priority</span><span class="hide-sm">Status</span><span class="hide-sm">Hours (act/est)</span><span>Due</span><span class="hide-sm">Tags</span><span class="hide-sm">Parent</span><span></span>
       </div>
       ${rows}
     </div>`;
@@ -663,7 +684,7 @@ function renderTable(){
     {key:'id', label:'ID'}, {key:'type', label:'Type'}, {key:'title', label:'Title'},
     {key:'assignee', label:'Assignee'}, {key:'status', label:'Status'}, {key:'priority', label:'Priority'},
     {key:'estHours', label:'Est (h)'}, {key:'actHours', label:'Act (h)'}, {key:'dueDate', label:'Due'},
-    {key:'parentId', label:'Parent'}, {key:'path', label:'Path'}
+    {key:'tags', label:'Tags'}, {key:'parentId', label:'Parent'}, {key:'path', label:'Path'}
   ];
   const headerHtml = cols.map(c=>`<th data-sortkey="${c.key}" class="${key===c.key?'sorted':''}">${c.label}</th>`).join('') + '<th></th>';
 
@@ -678,6 +699,7 @@ function renderTable(){
       <td style="font-family:var(--mono);">${item.estHours||0}</td>
       <td style="font-family:var(--mono);">${item.actHours||0}</td>
       <td class="${isOverdue(item)?'overdue':''}" style="font-family:var(--mono);font-size:12px;">${item.dueDate||'—'}</td>
+      <td style="white-space:normal;">${tagsCellHtml(item)}</td>
       <td style="width:56px;white-space:normal;">${parentSelectHtml(item)}</td>
       <td class="path-cell" title="${escapeHtml(pathOf(item))}">${escapeHtml(pathOf(item))}</td>
       <td>
@@ -1146,8 +1168,9 @@ document.getElementById('filterType').addEventListener('change', (e)=>{ state.fi
 document.getElementById('filterStatus').addEventListener('change', (e)=>{ state.filters.status = e.target.value; render(); });
 document.getElementById('filterPriority').addEventListener('change', (e)=>{ state.filters.priority = e.target.value; render(); });
 document.getElementById('filterAssignee').addEventListener('change', (e)=>{ state.filters.assignee = e.target.value; render(); });
+document.getElementById('filterTag').addEventListener('change', (e)=>{ state.filters.tag = e.target.value; render(); });
 document.getElementById('btnClearFilters').addEventListener('click', ()=>{
-  state.filters = {search:'', type:'', status:'', priority:'', assignee:''};
+  state.filters = {search:'', type:'', status:'', priority:'', assignee:'', tag:''};
   document.getElementById('searchInput').value = '';
   render();
 });
